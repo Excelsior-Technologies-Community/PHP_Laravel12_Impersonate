@@ -12,7 +12,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'check.impersonation' => \App\Http\Middleware\CheckImpersonation::class,
+
+            'check.impersonation' =>
+            \App\Http\Middleware\CheckImpersonation::class,
+
+            'impersonation.timeout' =>
+            \App\Http\Middleware\ImpersonationTimeout::class,
+
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
