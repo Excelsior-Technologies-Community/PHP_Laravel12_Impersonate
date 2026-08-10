@@ -71,34 +71,67 @@
             {{-- Search --}}
             <div class="bg-white rounded-xl shadow p-6 mb-6">
 
-                <form
-                    method="GET"
+                <form method="GET"
                     action="{{ route('admin.audit.logs') }}">
 
-                    <div class="flex flex-col md:flex-row gap-3">
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
 
                         <input
                             type="text"
                             name="search"
                             value="{{ request('search') }}"
-                            placeholder="Search by admin name, user name or email..."
-                            class="w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500">
+                            placeholder="Search..."
+                            class="rounded-lg border-gray-300">
 
-                        <button
-                            type="submit"
-                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg">
+                        <select
+                            name="status"
+                            class="rounded-lg border-gray-300">
 
-                            Search
+                            <option value="">
+                                All Status
+                            </option>
 
-                        </button>
+                            <option value="active"
+                                {{ request('status')=='active' ? 'selected' : '' }}>
+                                Active
+                            </option>
 
-                        <a
-                            href="{{ route('admin.audit.logs') }}"
-                            class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg text-center">
+                            <option value="completed"
+                                {{ request('status')=='completed' ? 'selected' : '' }}>
+                                Completed
+                            </option>
 
-                            Reset
+                        </select>
 
-                        </a>
+                        <input
+                            type="date"
+                            name="start_date"
+                            value="{{ request('start_date') }}"
+                            class="rounded-lg border-gray-300">
+
+                        <input
+                            type="date"
+                            name="end_date"
+                            value="{{ request('end_date') }}"
+                            class="rounded-lg border-gray-300">
+
+                        <div class="flex gap-2">
+
+                            <button
+                                class="bg-indigo-600 text-white px-5 py-2 rounded-lg w-full">
+
+                                Search
+
+                            </button>
+
+                            <a href="{{ route('admin.audit.logs') }}"
+                                class="bg-gray-500 text-white px-5 py-2 rounded-lg">
+
+                                Reset
+
+                            </a>
+
+                        </div>
 
                     </div>
 
@@ -239,12 +272,23 @@
 
                                 <td class="px-6 py-4">
 
-                                    <span
-                                        class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                                    @if($log->created_at->equalTo($log->updated_at))
 
-                                        ✅ Completed
+                                    <span class="px-3 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">
+
+                                        Active
 
                                     </span>
+
+                                    @else
+
+                                    <span class="px-3 py-1 rounded-full text-xs bg-green-100 text-green-700">
+
+                                        Completed
+
+                                    </span>
+
+                                    @endif
 
                                 </td>
 
