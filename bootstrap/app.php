@@ -19,6 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'impersonation.timeout' =>
             \App\Http\Middleware\ImpersonationTimeout::class,
 
+            'impersonation.safemode' =>
+            \App\Http\Middleware\ImpersonationSafeMode::class,
+
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

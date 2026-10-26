@@ -33,52 +33,63 @@ class UserController extends Controller
     public function impersonate(Request $request, $id)
     {
         $admin = Auth::user();
-
         $user = User::findOrFail($id);
 
         if (!$admin->canImpersonate()) {
-            return back()->with(
-                'error',
-                'Only admin can impersonate.'
-            );
+            return back()->with('error', 'Only admin can impersonate.');
         }
 
         if (!$user->canBeImpersonated()) {
-            return back()->with(
-                'error',
-                'Cannot impersonate another admin.'
-            );
+            return back()->with('error', 'Cannot impersonate another admin.');
         }
 
-        /*
-         * Prevent starting another impersonation
-         * while already impersonating someone.
-         */
+        // Prevent nested impersonation
         if (session()->has('impersonation_log_id')) {
-            return back()->with(
-                'error',
-                'An impersonation session is already active.'
-            );
+            return back()->with('error', 'An impersonation session is already active.');
         }
 
+        // Validate optional compliance parameters
+        $accessMode = $request->input('access_mode', 'read_only');
+        if (!in_array($accessMode, ['read_only', 'full_access'])) {
+            $accessMode = 'read_only';
+        }
+
+        $durationMinutes = (int) $request->input('duration_minutes', 15);
+        if ($durationMinutes < 1 || $durationMinutes > 120) {
+            $durationMinutes = 15;
+        }
+
+        $reason = $request->input('reason') ?: 'Customer Support & Troubleshooting';
+        $customNotes = $request->input('custom_notes');
+        if ($customNotes) {
+            $reason .= ' (' . trim($customNotes) . ')';
+        }
+
+        $ticketId = $request->input('ticket_id');
+
         /*
-         * Create audit log.
-         *
-         * created_at = impersonation start time
-         * updated_at = impersonation end time
+         * Create audit log with compliance parameters.
          */
         $log = ImpersonationLog::create([
             'admin_id' => $admin->id,
             'user_id' => $user->id,
+            'ticket_id' => $ticketId,
+            'reason' => $reason,
+            'access_mode' => $accessMode,
+            'duration_minutes' => $durationMinutes,
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
 
         /*
-         * Store only the audit-log ID in the session.
+         * Store compliance parameters in session.
          */
         session([
             'impersonation_log_id' => $log->id,
+            'impersonation_access_mode' => $accessMode,
+            'impersonation_duration_minutes' => $durationMinutes,
+            'impersonation_ticket_id' => $ticketId,
+            'impersonation_reason' => $reason,
         ]);
 
         /*
@@ -86,11 +97,13 @@ class UserController extends Controller
          */
         $admin->impersonate($user);
 
+        $modeLabel = $accessMode === 'read_only' ? 'Read-Only Safe Mode' : 'Full Write Access';
+
         return redirect()
             ->route('dashboard')
             ->with(
                 'success',
-                "You are now impersonating {$user->name}"
+                "Now impersonating {$user->name} in {$modeLabel} (Session limit: {$durationMinutes} mins)."
             );
     }
 
@@ -100,13 +113,9 @@ class UserController extends Controller
 
         /*
          * Update updated_at when impersonation ends.
-         *
-         * created_at = start
-         * updated_at = end
          */
         if ($logId) {
             $log = ImpersonationLog::find($logId);
-
             if ($log) {
                 $log->touch();
             }
@@ -122,13 +131,17 @@ class UserController extends Controller
          */
         session()->forget([
             'impersonation_log_id',
+            'impersonation_access_mode',
+            'impersonation_duration_minutes',
+            'impersonation_ticket_id',
+            'impersonation_reason',
         ]);
 
         return redirect()
             ->route('admin.users.index')
             ->with(
                 'success',
-                'Impersonation stopped successfully.'
+                'Impersonation session ended successfully.'
             );
     }
 }
