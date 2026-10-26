@@ -15,39 +15,42 @@ class ImpersonationTimeout
         $logId = session('impersonation_log_id');
 
         if ($logId) {
-
             $log = ImpersonationLog::find($logId);
 
             if ($log) {
+                // Determine target timeout in seconds (custom duration per session)
+                $durationMinutes = $log->duration_minutes ?: session('impersonation_duration_minutes', 15);
+                $allowedSeconds = $durationMinutes * 60;
 
-                // created_at is the impersonation start time
+                // Elapsed time since start
                 $elapsedSeconds = $log->created_at->diffInSeconds(now());
+                $remainingSeconds = max(0, $allowedSeconds - $elapsedSeconds);
 
-                // Testing timeout: 2 minutes
-                if ($elapsedSeconds >= 120) {
+                view()->share('impersonationRemainingSeconds', $remainingSeconds);
+                view()->share('impersonationDurationMinutes', $durationMinutes);
+                view()->share('impersonationAccessMode', $log->access_mode ?: session('impersonation_access_mode', 'read_only'));
 
-                    /*
-                     * updated_at becomes the impersonation end time.
-                     */
+                if ($elapsedSeconds >= $allowedSeconds) {
+                    // Update updated_at as end time
                     $log->touch();
 
-                    /*
-                     * Leave impersonation.
-                     */
+                    // Terminate impersonation
                     Auth::user()->leaveImpersonation();
 
-                    /*
-                     * Clear impersonation session.
-                     */
+                    // Clear session data
                     session()->forget([
                         'impersonation_log_id',
+                        'impersonation_access_mode',
+                        'impersonation_duration_minutes',
+                        'impersonation_ticket_id',
+                        'impersonation_reason',
                     ]);
 
                     return redirect()
                         ->route('admin.users.index')
                         ->with(
                             'error',
-                            'Impersonation automatically ended after 2 minutes.'
+                            "Impersonation session automatically expired after {$durationMinutes} minutes."
                         );
                 }
             }
